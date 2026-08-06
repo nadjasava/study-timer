@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+
+  --surface-page: #0a0a0a;
+  --surface-card: rgba(255, 255, 255, 0.05);
+  --surface-card-hover: rgba(255, 255, 255, 0.08);
+  --ink: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+
+  --accent: #1baf7a;
+  --accent-hover: #22c98c;
+  --accent-wash: rgba(27, 175, 122, 0.16);
+
+  --danger: #e66767;
+  --danger-hover: #eb8a8a;
+  --danger-wash: rgba(230, 103, 103, 0.14);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #1baf7a;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #26b826;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+@theme inline {
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-card-hover: var(--surface-card-hover);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-wash: var(--accent-wash);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-wash: var(--danger-wash);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: var(--surface-page);
+  background-image:
+    radial-gradient(60% 50% at 12% 8%, rgba(27, 175, 122, 0.18), transparent 60%),
+    radial-gradient(50% 40% at 88% 12%, rgba(144, 133, 233, 0.12), transparent 60%),
+    radial-gradient(70% 55% at 50% 105%, rgba(27, 175, 122, 0.10), transparent 60%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: var(--accent-wash);
+  color: var(--ink);
+}
+
+* {
+  scrollbar-color: var(--border-strong) transparent;
+}

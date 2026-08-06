@@ -1,0 +1,169 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+const VIDEO_ID = "X4VbdwhkE10";
+
+function loadYouTubeApi() {
+  return new Promise((resolve) => {
+    if (window.YT && window.YT.Player) {
+      resolve(window.YT);
+      return;
+    }
+    const previousCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousCallback?.();
+      resolve(window.YT);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    }
+  });
+}
+
+function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+function VolumeIcon({ muted }) {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      {muted ? (
+        <path d="m17 9 5 6M22 9l-5 6" />
+      ) : (
+        <>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export default function AmbientPlayer() {
+  const containerRef = useRef(null);
+  const playerRef = useRef(null);
+
+  const [ready, setReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(50);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !containerRef.current) return;
+      playerRef.current = new YT.Player(containerRef.current, {
+        videoId: VIDEO_ID,
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          modestbranding: 1,
+          rel: 0,
+        },
+        events: {
+          onReady: (event) => {
+            event.target.setVolume(volume);
+            setReady(true);
+          },
+          onStateChange: (event) => {
+            setIsPlaying(event.data === YT.PlayerState.PLAYING);
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      playerRef.current?.destroy?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function togglePlay() {
+    if (!playerRef.current) return;
+    if (isPlaying) {
+      playerRef.current.pauseVideo();
+    } else {
+      playerRef.current.playVideo();
+    }
+  }
+
+  function toggleMute() {
+    if (!playerRef.current) return;
+    if (muted) {
+      playerRef.current.unMute();
+      setMuted(false);
+    } else {
+      playerRef.current.mute();
+      setMuted(true);
+    }
+  }
+
+  function handleVolumeChange(e) {
+    const value = Number(e.target.value);
+    setVolume(value);
+    playerRef.current?.setVolume(value);
+    if (value === 0) {
+      setMuted(true);
+    } else if (muted) {
+      playerRef.current?.unMute();
+      setMuted(false);
+    }
+  }
+
+  return (
+    <div className="inline-flex items-center gap-3 rounded-full border border-border bg-surface-card px-5 py-2.5 backdrop-blur-xl">
+      <div ref={containerRef} className="absolute h-px w-px overflow-hidden opacity-0" />
+
+      <button
+        onClick={togglePlay}
+        disabled={!ready}
+        aria-label={isPlaying ? "Pauziraj muziku" : "Pusti muziku"}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {isPlaying ? <PauseIcon /> : <PlayIcon />}
+      </button>
+
+      <button
+        onClick={toggleMute}
+        disabled={!ready}
+        aria-label={muted ? "Uključi zvuk" : "Isključi zvuk"}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-white/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <VolumeIcon muted={muted || volume === 0} />
+      </button>
+
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value={muted ? 0 : volume}
+        onChange={handleVolumeChange}
+        disabled={!ready}
+        aria-label="Jačina zvuka"
+        className="h-1 w-24 cursor-pointer rounded-full disabled:cursor-not-allowed disabled:opacity-40"
+        style={{ accentColor: "var(--color-accent)" }}
+      />
+
+      <span className="hidden text-xs text-ink-muted sm:inline">Muzika za fokus</span>
+    </div>
+  );
+}
