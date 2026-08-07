@@ -226,6 +226,36 @@ export default function Timer() {
     }
   }
 
+  // Ends the current work phase early, banking whatever time has actually
+  // elapsed (not the full pomodoro length) before moving on to the break —
+  // same transition completePhase() does on a natural completion, just
+  // triggered manually and with a shorter logged duration.
+  function skipToBreak() {
+    if (phase !== "work") return;
+    const elapsed = phaseDurationSeconds - displayRemaining;
+    if (subjectId && sessionStartRef.current && elapsed > 0) {
+      addSession({
+        subjectId,
+        mode: "pomodoro",
+        startTime: sessionStartRef.current,
+        endTime: new Date().toISOString(),
+        durationSeconds: elapsed,
+        date: new Date().toISOString().slice(0, 10),
+      });
+    }
+    const nextCount = completedCount + 1;
+    setCompletedCount(nextCount);
+    const nextPhase =
+      nextCount % settings.intervalsUntilLongBreak === 0 ? "longBreak" : "break";
+    sessionStartRef.current = null;
+    setPhase(nextPhase);
+
+    const duration = phaseDurationSecondsFor(nextPhase, settings);
+    phaseEndAtRef.current = Date.now() + duration * 1000;
+    setRemaining(duration);
+    setIsRunning(true);
+  }
+
   function reconcile() {
     if (!phaseEndAtRef.current) return;
     const secondsLeft = Math.round((phaseEndAtRef.current - Date.now()) / 1000);
@@ -360,6 +390,16 @@ export default function Timer() {
           Reset
         </button>
       </div>
+
+      {phase === "work" && (
+        <button
+          onClick={skipToBreak}
+          disabled={!subjectId}
+          className="text-xs font-medium text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Preskoči na pauzu
+        </button>
+      )}
     </div>
   );
 }
