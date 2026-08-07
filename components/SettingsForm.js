@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { savePomodoroSettings, usePomodoroSettings } from "@/lib/storage";
+
+const SAVE_DELAY_MS = 600;
 
 function SettingField({ label, value, onChange }) {
   return (
@@ -40,15 +43,29 @@ function ToggleField({ label, checked, onChange }) {
 }
 
 export default function SettingsForm() {
-  const settings = usePomodoroSettings();
+  const remoteSettings = usePomodoroSettings();
+  const [settings, setSettings] = useState(remoteSettings);
+  const saveTimerRef = useRef(null);
+
+  useEffect(() => {
+    setSettings(remoteSettings);
+  }, [remoteSettings]);
+
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   function handleChange(field, rawValue) {
     const value = Math.max(1, Number(rawValue) || 1);
-    savePomodoroSettings({ ...settings, [field]: value });
+    const next = { ...settings, [field]: value };
+    setSettings(next);
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => savePomodoroSettings(next), SAVE_DELAY_MS);
   }
 
   function handleToggle(field, value) {
-    savePomodoroSettings({ ...settings, [field]: value });
+    const next = { ...settings, [field]: value };
+    setSettings(next);
+    clearTimeout(saveTimerRef.current);
+    savePomodoroSettings(next);
   }
 
   return (

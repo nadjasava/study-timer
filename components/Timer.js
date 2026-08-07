@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SubjectSelector from "./SubjectSelector";
-import { addSession, usePomodoroSettings } from "@/lib/storage";
-import { formatMinutesSeconds } from "@/lib/timeUtils";
+import { addSession, usePomodoroSettings, useSessions } from "@/lib/storage";
+import { formatMinutesSeconds, startOfStudyDay } from "@/lib/timeUtils";
 
 const RING_SIZE = 240;
 const RING_STROKE = 12;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const STORAGE_KEY = "study-timer:active-timer";
 
 const PHASE_LABELS = {
   work: "Učenje",
@@ -55,6 +56,25 @@ function notify(title, body) {
   }
 }
 
+function loadStoredTimer() {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredTimer(state) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function clearStoredTimer() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 function GearIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -94,19 +114,34 @@ function ProgressRing({ progress, color }) {
 
 export default function Timer() {
   const settings = usePomodoroSettings();
+  const sessions = useSessions();
 
   const [subjectId, setSubjectId] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [phase, setPhase] = useState("work");
   // null = phase hasn't started ticking yet, so remaining time is just derived from settings
-  const [tickingRemaining, setTickingRemaining] = useState(null);
+  const [remaining, setRemaining] = useState(null);
   const [completedCount, setCompletedCount] = useState(0);
 
+  // phaseEndAt is the wall-clock timestamp the running phase ends at, so a
+  // reload or a backgrounded/locked phone can recompute the true remaining
+  // time instead of losing whatever a setInterval counter had reached.
+  const phaseEndAtRef = useRef(null);
   const sessionStartRef = useRef(null);
+  // A state flag, not a ref: the persistence-write effect below needs to
+  // see it flip in the SAME re-render as the restored values below, or it
+  // fires once more with the pre-hydration defaults and clobbers what was
+  // just restored from storage.
+  const [hydrated, setHydrated] = useState(false);
 
   const phaseDurationSeconds = phaseDurationSecondsFor(phase, settings);
-  const remaining = tickingRemaining ?? phaseDurationSeconds;
-  const ringProgress = phaseDurationSeconds > 0 ? remaining / phaseDurationSeconds : 0;
+  const displayRemaining = remaining ?? phaseDurationSeconds;
+  const ringProgress = phaseDurationSeconds > 0 ? displayRemaining / phaseDurationSeconds : 0;
+
+  const todayStart = startOfStudyDay();
+  const todayCompletedCount = sessions.filter(
+    (s) => s.mode === "pomodoro" && new Date(s.startTime) >= todayStart
+  ).length;
 
   useEffect(() => {
     if (
@@ -118,81 +153,153 @@ export default function Timer() {
     }
   }, []);
 
+  // Restore an in-progress timer once on mount. If the stored phase already
+  // ended while the tab/phone was away, land it exactly on that boundary —
+  // the running effect below processes the transition on its first tick.
+  useEffect(() => {
+    const stored = loadStoredTimer();
+    if (stored) {
+      setSubjectId(stored.subjectId ?? "");
+      setPhase(stored.phase ?? "work");
+      setCompletedCount(stored.completedCount ?? 0);
+      sessionStartRef.current = stored.sessionStart ?? null;
+      phaseEndAtRef.current = stored.phaseEndAt ?? null;
+
+      if (stored.isRunning && stored.phaseEndAt) {
+        const secondsLeft = Math.round((stored.phaseEndAt - Date.now()) / 1000);
+        setRemaining(Math.max(0, secondsLeft));
+        setIsRunning(true);
+      } else {
+        setRemaining(stored.remaining ?? null);
+        setIsRunning(false);
+      }
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function completePhase() {
+    if (phase === "work") {
+      if (subjectId && sessionStartRef.current) {
+        addSession({
+          subjectId,
+          mode: "pomodoro",
+          startTime: sessionStartRef.current,
+          endTime: new Date().toISOString(),
+          durationSeconds: settings.workMinutes * 60,
+          date: new Date().toISOString().slice(0, 10),
+        });
+      }
+      const nextCount = completedCount + 1;
+      setCompletedCount(nextCount);
+      const nextPhase =
+        nextCount % settings.intervalsUntilLongBreak === 0 ? "longBreak" : "break";
+      playBeep();
+      notify(nextPhase === "longBreak" ? "Duža pauza!" : "Pauza!", "Vreme je za pauzu.");
+      sessionStartRef.current = null;
+      setPhase(nextPhase);
+
+      const duration = phaseDurationSecondsFor(nextPhase, settings);
+      if (settings.autoStartNextPhase) {
+        phaseEndAtRef.current = Date.now() + duration * 1000;
+        setRemaining(duration);
+      } else {
+        phaseEndAtRef.current = null;
+        setRemaining(duration);
+        setIsRunning(false);
+      }
+    } else {
+      playBeep();
+      notify("Nazad na učenje!", "Pauza je gotova.");
+      setPhase("work");
+
+      const duration = settings.workMinutes * 60;
+      if (settings.autoStartNextPhase) {
+        sessionStartRef.current = new Date().toISOString();
+        phaseEndAtRef.current = Date.now() + duration * 1000;
+        setRemaining(duration);
+      } else {
+        phaseEndAtRef.current = null;
+        setRemaining(duration);
+        setIsRunning(false);
+      }
+    }
+  }
+
+  function reconcile() {
+    if (!phaseEndAtRef.current) return;
+    const secondsLeft = Math.round((phaseEndAtRef.current - Date.now()) / 1000);
+    if (secondsLeft > 0) {
+      setRemaining(secondsLeft);
+    } else {
+      completePhase();
+    }
+  }
+
   useEffect(() => {
     if (!isRunning) return undefined;
-
-    const interval = setInterval(() => {
-      setTickingRemaining((prev) => {
-        const current = prev ?? phaseDurationSeconds;
-        if (current > 1) return current - 1;
-
-        if (phase === "work") {
-          if (subjectId && sessionStartRef.current) {
-            addSession({
-              subjectId,
-              mode: "pomodoro",
-              startTime: sessionStartRef.current,
-              endTime: new Date().toISOString(),
-              durationSeconds: settings.workMinutes * 60,
-              date: new Date().toISOString().slice(0, 10),
-            });
-          }
-          const nextCount = completedCount + 1;
-          setCompletedCount(nextCount);
-          const nextPhase =
-            nextCount % settings.intervalsUntilLongBreak === 0 ? "longBreak" : "break";
-          playBeep();
-          notify(
-            nextPhase === "longBreak" ? "Duža pauza!" : "Pauza!",
-            "Vreme je za pauzu."
-          );
-          setPhase(nextPhase);
-          sessionStartRef.current = null;
-          if (!settings.autoStartNextPhase) {
-            setIsRunning(false);
-          }
-          return phaseDurationSecondsFor(nextPhase, settings);
-        }
-
-        playBeep();
-        notify("Nazad na učenje!", "Pauza je gotova.");
-        setPhase("work");
-        if (settings.autoStartNextPhase) {
-          sessionStartRef.current = new Date().toISOString();
-        } else {
-          setIsRunning(false);
-        }
-        return settings.workMinutes * 60;
-      });
-    }, 1000);
-
+    reconcile();
+    const interval = setInterval(reconcile, 1000);
     return () => clearInterval(interval);
-  }, [isRunning, phase, subjectId, settings, phaseDurationSeconds, completedCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, phase, settings, subjectId, completedCount]);
+
+  // Mobile browsers throttle or fully suspend timers in a backgrounded tab —
+  // catch up the instant the screen is looked at again, instead of waiting
+  // for the next interval tick.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "visible" && isRunning) {
+        reconcile();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, phase, settings, subjectId, completedCount]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveStoredTimer({
+      subjectId,
+      isRunning,
+      phase,
+      remaining,
+      completedCount,
+      phaseEndAt: phaseEndAtRef.current,
+      sessionStart: sessionStartRef.current,
+    });
+  }, [hydrated, subjectId, isRunning, phase, remaining, completedCount]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.title = isRunning
-      ? `${formatMinutesSeconds(remaining)} · ${PHASE_LABELS[phase]} — Study Timer`
+      ? `${formatMinutesSeconds(displayRemaining)} · ${PHASE_LABELS[phase]} — Study Timer`
       : "Study Timer";
-  }, [isRunning, remaining, phase]);
+  }, [isRunning, displayRemaining, phase]);
 
   function handleStart() {
     if (!subjectId) return;
     if (!sessionStartRef.current && phase === "work") {
       sessionStartRef.current = new Date().toISOString();
     }
+    phaseEndAtRef.current = Date.now() + displayRemaining * 1000;
     setIsRunning(true);
   }
 
   function handlePause() {
     setIsRunning(false);
+    phaseEndAtRef.current = null;
   }
 
   function handleReset() {
     setIsRunning(false);
     setPhase("work");
-    setTickingRemaining(null);
+    setRemaining(null);
+    setCompletedCount(0);
+    phaseEndAtRef.current = null;
     sessionStartRef.current = null;
+    clearStoredTimer();
   }
 
   return (
@@ -216,7 +323,7 @@ export default function Timer() {
         <ProgressRing progress={ringProgress} color={PHASE_RING_COLOR[phase]} />
         <div className="absolute flex flex-col items-center gap-1">
           <span className="font-mono text-5xl font-semibold tabular-nums text-ink">
-            {formatMinutesSeconds(remaining)}
+            {formatMinutesSeconds(displayRemaining)}
           </span>
           <span className="text-xs font-medium uppercase tracking-wider text-ink-muted">
             {PHASE_LABELS[phase]}
@@ -225,7 +332,7 @@ export default function Timer() {
       </div>
 
       <p className="text-sm text-ink-muted">
-        Završeno intervala: <span className="text-ink-secondary">{completedCount}</span>
+        Završeno intervala danas: <span className="text-ink-secondary">{todayCompletedCount}</span>
       </p>
 
       <div className="flex gap-3">
