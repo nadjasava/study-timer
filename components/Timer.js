@@ -52,8 +52,18 @@ function playBeep() {
 
 function notify(title, body) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
-  if (Notification.permission === "granted") {
+  if (Notification.permission !== "granted") return;
+  try {
+    // Mobile Chrome throws "Illegal constructor" here whenever a service
+    // worker controls the page (always true for the installed PWA) — it
+    // requires ServiceWorkerRegistration.showNotification() instead. This
+    // call sits in the middle of handleStart()/completePhase(), so letting
+    // it throw silently aborted the rest of those functions (isRunning
+    // never flipped), which looked like the Start button doing nothing.
     new Notification(title, { body });
+  } catch {
+    // Unsupported here — the scheduled push notification (lib/pushNotifications.js)
+    // still covers this device while the tab is backgrounded/closed.
   }
 }
 
