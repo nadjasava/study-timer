@@ -12,25 +12,25 @@ const COLORS = [
   "var(--color-series-6)",
   "var(--color-series-7)",
   "var(--color-series-8)",
-  "var(--color-series-9)",
 ];
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 
+// Oval rather than perfectly round, and narrower than tall, so all 8 fit on
+// one row without wrapping or scrolling even on a narrow phone.
 function ColorPicker({ value, onChange }) {
   return (
-    <div className="flex flex-nowrap gap-1.5 overflow-x-auto sm:gap-2.5">
+    <div className="flex flex-nowrap gap-2">
       {COLORS.map((c) => (
         <button
           type="button"
           key={c}
           onClick={() => onChange(c)}
           aria-label={`Boja ${c}`}
-          className="h-7 w-7 shrink-0 rounded-full ring-offset-2 ring-offset-surface-card transition-shadow sm:h-8 sm:w-8"
-          style={{
-            backgroundColor: c,
-            boxShadow: value === c ? "0 0 0 2px var(--color-ink)" : "none",
-          }}
+          className={`h-8 w-6 shrink-0 rounded-full transition-shadow sm:h-9 sm:w-7 ${
+            value === c ? "ring-2 ring-ink ring-offset-2 ring-offset-surface-card" : ""
+          }`}
+          style={{ backgroundColor: c }}
         />
       ))}
     </div>

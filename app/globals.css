@@ -20,17 +20,16 @@
   --danger-hover: #eb8a8a;
   --danger-wash: rgba(230, 103, 103, 0.14);
 
-  /* Chosen subject-color palette: burgundy, hot pink, orange, lime,
-     turquoise, blue, purple, lilac, yellow. */
-  --series-1: #ae3b49;
-  --series-2: #d04188;
-  --series-3: #d55d0c;
-  --series-4: #8ab03a;
-  --series-5: #009a87;
-  --series-6: #3179d6;
-  --series-7: #6243a5;
-  --series-8: #a07bca;
-  --series-9: #cfae00;
+  /* Chosen subject-color palette: hot pink, orange, lime, turquoise, blue,
+     purple, lilac, yellow. */
+  --series-1: #d04188;
+  --series-2: #d55d0c;
+  --series-3: #8ab03a;
+  --series-4: #009a87;
+  --series-5: #3179d6;
+  --series-6: #4c3480;
+  --series-7: #ae8fd2;
+  --series-8: #cfae00;
 }
 
 @theme inline {
@@ -59,7 +58,6 @@
   --color-series-6: var(--series-6);
   --color-series-7: var(--series-7);
   --color-series-8: var(--series-8);
-  --color-series-9: var(--series-9);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
