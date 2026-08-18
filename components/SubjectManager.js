@@ -3,10 +3,6 @@
 import { useRef, useState } from "react";
 import { addSubject, deleteSubject, updateSubject, useSubjects } from "@/lib/storage";
 
-// Only 6 — this exact set is validated so every one of these is
-// distinguishable from every other, not just from its neighbors. Adding
-// more back in would put some pair too close together again (there isn't
-// enough perceptual room for 8 fully-distinct hues at once).
 const COLORS = [
   "var(--color-series-1)",
   "var(--color-series-2)",
@@ -14,13 +10,59 @@ const COLORS = [
   "var(--color-series-4)",
   "var(--color-series-5)",
   "var(--color-series-6)",
+  "var(--color-series-7)",
+  "var(--color-series-8)",
 ];
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 
+// Opens the OS color picker for a fully custom color, in addition to the 6
+// validated presets — explicitly via showPicker() rather than relying on a
+// bare click reaching a transparent input (same fix as the exam date
+// picker: some browsers silently block clicks on a fully-invisible input).
+function CustomColorButton({ value, onChange }) {
+  const inputRef = useRef(null);
+  const isCustom = !COLORS.includes(value);
+
+  function open() {
+    const el = inputRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === "function") {
+      el.showPicker();
+    } else {
+      el.focus();
+      el.click();
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      aria-label="Izaberi svoju boju"
+      className="relative h-8 w-8 shrink-0 rounded-full border border-border"
+      style={{
+        background: isCustom
+          ? value
+          : "conic-gradient(from 0deg, #e0393b, #e08a1e, #d4c11e, #3aa93a, #1e9fc4, #4e68ce, #a24ec4, #e0397e, #e0393b)",
+        boxShadow: isCustom ? "0 0 0 2px var(--color-ink)" : "none",
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="color"
+        tabIndex={-1}
+        value={isCustom ? value : "#c0392b"}
+        onChange={(e) => onChange(e.target.value)}
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+      />
+    </button>
+  );
+}
+
 function ColorPicker({ value, onChange }) {
   return (
-    <div className="flex gap-2.5">
+    <div className="flex flex-wrap gap-2.5">
       {COLORS.map((c) => (
         <button
           type="button"
@@ -34,6 +76,7 @@ function ColorPicker({ value, onChange }) {
           }}
         />
       ))}
+      <CustomColorButton value={value} onChange={onChange} />
     </div>
   );
 }
