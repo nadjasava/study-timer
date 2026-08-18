@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { addExam, deleteExam, useExams, useSubjects } from "@/lib/storage";
 import { daysUntil, formatDateDMY } from "@/lib/timeUtils";
+import Calendar from "./Calendar";
+import Dropdown from "./Dropdown";
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 const ERROR_MESSAGE = "Nešto nije uspelo. Proveri konekciju i pokušaj ponovo.";
@@ -23,45 +25,50 @@ const TONE_CLASSES = {
   normal: "text-ink-secondary",
 };
 
-// The native date input's own text/icon rendering follows browser/OS locale
-// and theme (mm/dd/yyyy on some desktops, unreadable dark-on-dark text on
-// some Android builds), so it's kept only as the value holder + calendar
-// UI, fully transparent, opened explicitly via showPicker() from a real
-// visible button — some browsers silently refuse a bare click on a
-// fully-transparent input (an anti-clickjacking protection), which is why
-// just stacking it under a label and relying on click-through didn't work.
 function DateInput({ value, onChange }) {
-  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
 
-  function openPicker() {
-    const el = inputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") {
-      el.showPicker();
-    } else {
-      el.focus();
-      el.click();
+  useEffect(() => {
+    if (!open) return undefined;
+    function handlePointerDown(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
     }
-  }
+    function handleKeyDown(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   return (
-    <button
-      type="button"
-      onClick={openPicker}
-      className="relative w-full rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left focus:border-accent"
-    >
-      <span className={value ? "text-ink" : "text-ink-muted"}>
-        {value ? formatDateDMY(value) : "Datum"}
-      </span>
-      <input
-        ref={inputRef}
-        type="date"
-        tabIndex={-1}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-      />
-    </button>
+    <div ref={rootRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left outline-none transition-colors focus:border-accent"
+      >
+        <span className={value ? "text-ink" : "text-ink-muted"}>
+          {value ? formatDateDMY(value) : "Datum"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1.5">
+          <Calendar
+            value={value}
+            onChange={(iso) => {
+              onChange(iso);
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -170,20 +177,12 @@ export default function ExamManager() {
         onSubmit={handleAdd}
         className="flex flex-col gap-5 rounded-3xl border border-border bg-surface-card p-8 shadow-2xl shadow-black/40 backdrop-blur-xl"
       >
-        <select
+        <Dropdown
           value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-sm text-ink outline-none focus:border-accent"
-        >
-          <option value="" disabled>
-            Izaberi predmet
-          </option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id} className="bg-surface-page text-ink">
-              {s.name}
-            </option>
-          ))}
-        </select>
+          onChange={setSubjectId}
+          placeholder="Izaberi predmet"
+          options={subjects.map((s) => ({ value: s.id, label: s.name, color: s.color }))}
+        />
         <input
           type="text"
           placeholder="Napomena (opciono)"
