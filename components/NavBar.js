@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 const LINKS = [
   { href: "/", label: "Tajmer" },
   { href: "/subjects", label: "Predmeti" },
+  { href: "/exams", label: "Ispiti" },
   { href: "/stats", label: "Statistika" },
 ];
 
@@ -19,7 +20,8 @@ export default function NavBar() {
     <header className="sticky top-0 z-10 border-b border-border bg-surface-page/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
         <span className="flex shrink-0 items-center gap-2 text-sm font-semibold tracking-wide text-ink">
-          <span aria-hidden>🍅</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/tomato.png" alt="" aria-hidden className="h-5 w-5" />
           <span className="sr-only sm:not-sr-only">Study Timer</span>
         </span>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">

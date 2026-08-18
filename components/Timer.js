@@ -3,7 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SubjectSelector from "./SubjectSelector";
-import { addSession, usePomodoroSettings, useSessions } from "@/lib/storage";
+import {
+  addSession,
+  fetchActiveTimer,
+  pushActiveTimer,
+  subscribeActiveTimer,
+  usePomodoroSettings,
+  useSessions,
+} from "@/lib/storage";
 import { formatMinutesSeconds, startOfStudyDay } from "@/lib/timeUtils";
 
 const RING_SIZE = 240;
@@ -134,6 +141,9 @@ export default function Timer() {
   // fires once more with the pre-hydration defaults and clobbers what was
   // just restored from storage.
   const [hydrated, setHydrated] = useState(false);
+  // Set right before a remote (another-device) update is applied locally,
+  // so the push effect below skips re-sending the value that just arrived.
+  const skipNextPushRef = useRef(false);
 
   const phaseDurationSeconds = phaseDurationSecondsFor(phase, settings);
   const displayRemaining = remaining ?? phaseDurationSeconds;
@@ -181,6 +191,39 @@ export default function Timer() {
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
+
+    // Then check Supabase for a newer state set by another device while
+    // this one was closed (e.g. started on the phone, opened laptop after).
+    fetchActiveTimer().then((remote) => {
+      if (!remote) return;
+      const localSubjectId = stored?.subjectId ?? "";
+      const localPhase = stored?.phase ?? "work";
+      const localCompletedCount = stored?.completedCount ?? 0;
+      const localPhaseEndAt = stored?.phaseEndAt ?? null;
+      const localSessionStart = stored?.sessionStart ?? null;
+      const localIsRunning = stored?.isRunning ?? false;
+      const isSame =
+        (remote.subjectId || "") === localSubjectId &&
+        remote.phase === localPhase &&
+        remote.isRunning === localIsRunning &&
+        remote.completedCount === localCompletedCount &&
+        remote.phaseEndAt === localPhaseEndAt &&
+        remote.sessionStart === localSessionStart;
+      if (isSame) return;
+
+      skipNextPushRef.current = true;
+      setSubjectId(remote.subjectId ?? "");
+      setPhase(remote.phase ?? "work");
+      setCompletedCount(remote.completedCount ?? 0);
+      sessionStartRef.current = remote.sessionStart ?? null;
+      phaseEndAtRef.current = remote.phaseEndAt ?? null;
+      setIsRunning(remote.isRunning ?? false);
+      if (remote.isRunning && remote.phaseEndAt) {
+        setRemaining(Math.max(0, Math.round((remote.phaseEndAt - Date.now()) / 1000)));
+      } else {
+        setRemaining(remote.remainingSeconds ?? null);
+      }
+    });
   }, []);
 
   function completePhase() {
@@ -311,6 +354,60 @@ export default function Timer() {
       sessionStart: sessionStartRef.current,
     });
   }, [hydrated, subjectId, isRunning, phase, remaining, completedCount]);
+
+  // Pushes to Supabase only on meaningful transitions (start/pause/reset/
+  // phase change), not on every per-second tick — `remaining` is read fresh
+  // via closure without being a dependency, same reasoning as the interval
+  // effects above.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false;
+      return;
+    }
+    pushActiveTimer({
+      subjectId,
+      phase,
+      phaseEndAt: phaseEndAtRef.current,
+      remainingSeconds: remaining,
+      isRunning,
+      completedCount,
+      sessionStart: sessionStartRef.current,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, subjectId, isRunning, phase, completedCount]);
+
+  // Reflects changes made from another signed-in device (e.g. paused on the
+  // phone, resumed on the laptop). Re-subscribes on every transition so the
+  // echo check below always reads current values, never a stale closure.
+  useEffect(() => {
+    if (!hydrated) return undefined;
+    const unsubscribe = subscribeActiveTimer((remote) => {
+      if (!remote) return;
+      const isEcho =
+        (remote.subjectId || "") === subjectId &&
+        remote.phase === phase &&
+        remote.isRunning === isRunning &&
+        remote.completedCount === completedCount &&
+        remote.phaseEndAt === phaseEndAtRef.current &&
+        remote.sessionStart === sessionStartRef.current;
+      if (isEcho) return;
+
+      skipNextPushRef.current = true;
+      setSubjectId(remote.subjectId ?? "");
+      setPhase(remote.phase ?? "work");
+      setCompletedCount(remote.completedCount ?? 0);
+      sessionStartRef.current = remote.sessionStart ?? null;
+      phaseEndAtRef.current = remote.phaseEndAt ?? null;
+      setIsRunning(remote.isRunning ?? false);
+      if (remote.isRunning && remote.phaseEndAt) {
+        setRemaining(Math.max(0, Math.round((remote.phaseEndAt - Date.now()) / 1000)));
+      } else {
+        setRemaining(remote.remainingSeconds ?? null);
+      }
+    });
+    return unsubscribe;
+  }, [hydrated, subjectId, isRunning, phase, completedCount]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

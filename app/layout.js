@@ -3,6 +3,8 @@ import "./globals.css";
 import NavBar from "@/components/NavBar";
 import AuthGate from "@/components/AuthGate";
 import SyncBanner from "@/components/SyncBanner";
+import InstallPrompt from "@/components/InstallPrompt";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { AuthProvider } from "@/lib/AuthContext";
 
 const geistSans = Geist({
@@ -18,9 +20,10 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Study Timer",
   description: "Prati koliko učiš, po predmetima, uz Pomodoro režim.",
-  icons: {
-    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%85%3C/text%3E%3C/svg%3E",
-  },
+  // No explicit `icons` override here — this lets Next.js's file-convention
+  // icons (app/icon.png, app/apple-icon.png) apply, so the browser tab, iOS
+  // home screen, and PWA manifest all show the same tomato artwork instead
+  // of an emoji glyph that renders differently per OS.
 };
 
 export const viewport = {
@@ -34,9 +37,11 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegister />
         <AuthProvider>
           <AuthGate>
             <NavBar />
+            <InstallPrompt />
             <SyncBanner />
             {children}
           </AuthGate>

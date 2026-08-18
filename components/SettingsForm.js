@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { savePomodoroSettings, usePomodoroSettings } from "@/lib/storage";
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushSubscriptionState,
+  isPushSupported,
+} from "@/lib/pushNotifications";
 
 const SAVE_DELAY_MS = 600;
 
@@ -54,12 +60,50 @@ export default function SettingsForm() {
   const [error, setError] = useState("");
   const saveTimerRef = useRef(null);
 
+  // "checking" | "unsupported" | "unsubscribed" | "subscribed"
+  const [pushState, setPushState] = useState("checking");
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState("");
+
   if (remoteSettings !== syncedRemoteSettings) {
     setSyncedRemoteSettings(remoteSettings);
     setSettings(remoteSettings);
   }
 
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
+
+  useEffect(() => {
+    // isPushSupported() reads navigator/window, unavailable during SSR —
+    // same reasoning as the hydration reads in Timer/SyncBanner.
+    if (!isPushSupported()) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
+      setPushState("unsupported");
+      return;
+    }
+    getPushSubscriptionState().then(setPushState);
+  }, []);
+
+  async function handlePushToggle(next) {
+    setPushBusy(true);
+    setPushError("");
+    if (next) {
+      const { error: err } = await enablePushNotifications();
+      if (err === "denied") {
+        setPushError("Dozvola za notifikacije je odbijena — omogući je u podešavanjima browsera.");
+        setPushState("unsubscribed");
+      } else if (err) {
+        setPushError("Nešto nije uspelo. Pokušaj ponovo.");
+        setPushState("unsubscribed");
+      } else {
+        setPushState("subscribed");
+      }
+    } else {
+      const { error: err } = await disablePushNotifications();
+      setPushError(err ? "Nešto nije uspelo. Pokušaj ponovo." : "");
+      setPushState("unsubscribed");
+    }
+    setPushBusy(false);
+  }
 
   async function persist(next) {
     const err = await savePomodoroSettings(next);
@@ -111,6 +155,17 @@ export default function SettingsForm() {
         />
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
+
+      {(pushState === "subscribed" || pushState === "unsubscribed") && (
+        <div className="border-t border-border pt-5">
+          <ToggleField
+            label="Notifikacije na ovom uređaju"
+            checked={pushState === "subscribed"}
+            onChange={(v) => !pushBusy && handlePushToggle(v)}
+          />
+          {pushError && <p className="mt-2 text-sm text-danger">{pushError}</p>}
+        </div>
+      )}
     </div>
   );
 }
