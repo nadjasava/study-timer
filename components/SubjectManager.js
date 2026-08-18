@@ -12,71 +12,27 @@ const COLORS = [
   "var(--color-series-6)",
   "var(--color-series-7)",
   "var(--color-series-8)",
+  "var(--color-series-9)",
 ];
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 
-// Opens the OS color picker for a fully custom color, in addition to the 6
-// validated presets — explicitly via showPicker() rather than relying on a
-// bare click reaching a transparent input (same fix as the exam date
-// picker: some browsers silently block clicks on a fully-invisible input).
-function CustomColorButton({ value, onChange }) {
-  const inputRef = useRef(null);
-  const isCustom = !COLORS.includes(value);
-
-  function open() {
-    const el = inputRef.current;
-    if (!el) return;
-    if (typeof el.showPicker === "function") {
-      el.showPicker();
-    } else {
-      el.focus();
-      el.click();
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={open}
-      aria-label="Izaberi svoju boju"
-      className="relative h-8 w-8 shrink-0 rounded-full border border-border"
-      style={{
-        background: isCustom
-          ? value
-          : "conic-gradient(from 0deg, #e0393b, #e08a1e, #d4c11e, #3aa93a, #1e9fc4, #4e68ce, #a24ec4, #e0397e, #e0393b)",
-        boxShadow: isCustom ? "0 0 0 2px var(--color-ink)" : "none",
-      }}
-    >
-      <input
-        ref={inputRef}
-        type="color"
-        tabIndex={-1}
-        value={isCustom ? value : "#c0392b"}
-        onChange={(e) => onChange(e.target.value)}
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-      />
-    </button>
-  );
-}
-
 function ColorPicker({ value, onChange }) {
   return (
-    <div className="flex flex-wrap gap-2.5">
+    <div className="flex flex-nowrap gap-1.5 overflow-x-auto sm:gap-2.5">
       {COLORS.map((c) => (
         <button
           type="button"
           key={c}
           onClick={() => onChange(c)}
           aria-label={`Boja ${c}`}
-          className="h-8 w-8 rounded-full ring-offset-2 ring-offset-surface-card transition-shadow"
+          className="h-7 w-7 shrink-0 rounded-full ring-offset-2 ring-offset-surface-card transition-shadow sm:h-8 sm:w-8"
           style={{
             backgroundColor: c,
             boxShadow: value === c ? "0 0 0 2px var(--color-ink)" : "none",
           }}
         />
       ))}
-      <CustomColorButton value={value} onChange={onChange} />
     </div>
   );
 }
