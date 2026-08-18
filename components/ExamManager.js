@@ -25,22 +25,43 @@ const TONE_CLASSES = {
 
 // The native date input's own text/icon rendering follows browser/OS locale
 // and theme (mm/dd/yyyy on some desktops, unreadable dark-on-dark text on
-// some Android builds) — so it's kept for the actual tap-to-open-calendar
-// behavior, but made invisible and stacked under a label this app fully
-// controls, always shown as dd.mm.yyyy (or "Datum" when empty).
+// some Android builds), so it's kept only as the value holder + calendar
+// UI, fully transparent, opened explicitly via showPicker() from a real
+// visible button — some browsers silently refuse a bare click on a
+// fully-transparent input (an anti-clickjacking protection), which is why
+// just stacking it under a label and relying on click-through didn't work.
 function DateInput({ value, onChange }) {
+  const inputRef = useRef(null);
+
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === "function") {
+      el.showPicker();
+    } else {
+      el.focus();
+      el.click();
+    }
+  }
+
   return (
-    <div className="relative rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 focus-within:border-accent">
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      />
+    <button
+      type="button"
+      onClick={openPicker}
+      className="relative w-full rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left focus:border-accent"
+    >
       <span className={value ? "text-ink" : "text-ink-muted"}>
         {value ? formatDateDMY(value) : "Datum"}
       </span>
-    </div>
+      <input
+        ref={inputRef}
+        type="date"
+        tabIndex={-1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+      />
+    </button>
   );
 }
 
