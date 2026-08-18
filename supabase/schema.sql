@@ -41,8 +41,9 @@ create table if not exists exams (
   created_at timestamptz not null default now()
 );
 
--- One row per user: the currently running/paused pomodoro, mirrored here so
--- every signed-in device can see and continue the same timer in real time.
+-- One row per user: the currently running/paused pomodoro, written here
+-- (write-only — the app never reads it back) purely so the scheduled push
+-- notification check knows when a phase ends while the app is closed.
 create table if not exists active_timer (
   user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
   subject_id uuid references subjects(id) on delete set null,
@@ -102,16 +103,3 @@ create policy "Users manage own active timer" on active_timer
 drop policy if exists "Users manage own push subscriptions" on push_subscriptions;
 create policy "Users manage own push subscriptions" on push_subscriptions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- Lets Supabase Realtime push row changes to other signed-in devices.
--- ALTER PUBLICATION has no IF NOT EXISTS, so this checks first to stay
--- safe to re-run.
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'active_timer'
-  ) then
-    alter publication supabase_realtime add table active_timer;
-  end if;
-end $$;

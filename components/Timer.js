@@ -3,14 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SubjectSelector from "./SubjectSelector";
-import {
-  addSession,
-  fetchActiveTimer,
-  pushActiveTimer,
-  subscribeActiveTimer,
-  usePomodoroSettings,
-  useSessions,
-} from "@/lib/storage";
+import { addSession, pushActiveTimer, usePomodoroSettings, useSessions } from "@/lib/storage";
 import { formatMinutesSeconds, startOfStudyDay } from "@/lib/timeUtils";
 
 const RING_SIZE = 240;
@@ -141,9 +134,6 @@ export default function Timer() {
   // fires once more with the pre-hydration defaults and clobbers what was
   // just restored from storage.
   const [hydrated, setHydrated] = useState(false);
-  // Set right before a remote (another-device) update is applied locally,
-  // so the push effect below skips re-sending the value that just arrived.
-  const skipNextPushRef = useRef(false);
 
   const phaseDurationSeconds = phaseDurationSecondsFor(phase, settings);
   const displayRemaining = remaining ?? phaseDurationSeconds;
@@ -164,67 +154,33 @@ export default function Timer() {
     }
   }, []);
 
-  // Restore an in-progress timer once on mount, preferring Supabase over
-  // localStorage when they disagree — so a phase change made on another
-  // device while this one was closed always wins, and hydration only
-  // completes (and only then can the push effect below fire) once that
-  // reconciliation is done. Doing this out of order — marking hydrated
-  // before the remote check lands — was pushing this device's stale local
-  // state to Supabase first, which a moment later could get overwritten by
-  // the real remote state and look like the timer "started itself".
+  // Restore an in-progress timer once on mount. If the stored phase already
+  // ended while the tab/phone was away, land it exactly on that boundary —
+  // the running effect below processes the transition on its first tick.
   useEffect(() => {
-    let cancelled = false;
+    // localStorage doesn't exist during SSR, so this can only run after
+    // mount — the server and the client's first render must produce the
+    // same markup, and only this post-mount pass may then diverge from it.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const stored = loadStoredTimer();
+    if (stored) {
+      setSubjectId(stored.subjectId ?? "");
+      setPhase(stored.phase ?? "work");
+      setCompletedCount(stored.completedCount ?? 0);
+      sessionStartRef.current = stored.sessionStart ?? null;
+      phaseEndAtRef.current = stored.phaseEndAt ?? null;
 
-    async function hydrate() {
-      // localStorage doesn't exist during SSR, so this can only run after
-      // mount — the server and the client's first render must produce the
-      // same markup, and only this post-mount pass may then diverge from it.
-      const stored = loadStoredTimer();
-      let subjectIdValue = stored?.subjectId ?? "";
-      let phaseValue = stored?.phase ?? "work";
-      let completedCountValue = stored?.completedCount ?? 0;
-      let sessionStartValue = stored?.sessionStart ?? null;
-      let phaseEndAtValue = stored?.phaseEndAt ?? null;
-      let isRunningValue = stored?.isRunning ?? false;
-      let remainingValue = stored?.remaining ?? null;
-
-      // A failed/offline fetch resolves to null, so this naturally falls
-      // back to the localStorage values already set above.
-      const remote = await fetchActiveTimer();
-      if (remote) {
-        subjectIdValue = remote.subjectId ?? "";
-        phaseValue = remote.phase ?? "work";
-        completedCountValue = remote.completedCount ?? 0;
-        sessionStartValue = remote.sessionStart ?? null;
-        phaseEndAtValue = remote.phaseEndAt ?? null;
-        isRunningValue = remote.isRunning ?? false;
-        remainingValue = remote.remainingSeconds ?? null;
-      }
-
-      if (cancelled) return;
-
-      setSubjectId(subjectIdValue);
-      setPhase(phaseValue);
-      setCompletedCount(completedCountValue);
-      sessionStartRef.current = sessionStartValue;
-      phaseEndAtRef.current = phaseEndAtValue;
-      setIsRunning(isRunningValue);
-      if (isRunningValue && phaseEndAtValue) {
-        setRemaining(Math.max(0, Math.round((phaseEndAtValue - Date.now()) / 1000)));
+      if (stored.isRunning && stored.phaseEndAt) {
+        const secondsLeft = Math.round((stored.phaseEndAt - Date.now()) / 1000);
+        setRemaining(Math.max(0, secondsLeft));
+        setIsRunning(true);
       } else {
-        setRemaining(remainingValue);
+        setRemaining(stored.remaining ?? null);
+        setIsRunning(false);
       }
-      // What's being applied here already reflects Supabase (or is the
-      // offline fallback) — no need for the push effect to immediately
-      // echo it straight back.
-      skipNextPushRef.current = true;
-      setHydrated(true);
     }
-
-    hydrate();
-    return () => {
-      cancelled = true;
-    };
+    setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   function completePhase() {
@@ -356,16 +312,15 @@ export default function Timer() {
     });
   }, [hydrated, subjectId, isRunning, phase, remaining, completedCount]);
 
-  // Pushes to Supabase only on meaningful transitions (start/pause/reset/
-  // phase change), not on every per-second tick — `remaining` is read fresh
-  // via closure without being a dependency, same reasoning as the interval
-  // effects above.
+  // One-way: tells Supabase when the current phase ends so the scheduled
+  // push-notification check knows when to fire, even if this tab is closed
+  // or the phone is locked. Deliberately doesn't read anything back — that
+  // two-way sync was the source of the "timer starts itself" bug, since
+  // multiple devices ended up racing to resolve the same stale state.
+  // `remaining` is intentionally not a dependency, so this only fires on
+  // real transitions (start/pause/reset/phase change), not every tick.
   useEffect(() => {
     if (!hydrated) return;
-    if (skipNextPushRef.current) {
-      skipNextPushRef.current = false;
-      return;
-    }
     pushActiveTimer({
       subjectId,
       phase,
@@ -376,38 +331,6 @@ export default function Timer() {
       sessionStart: sessionStartRef.current,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, subjectId, isRunning, phase, completedCount]);
-
-  // Reflects changes made from another signed-in device (e.g. paused on the
-  // phone, resumed on the laptop). Re-subscribes on every transition so the
-  // echo check below always reads current values, never a stale closure.
-  useEffect(() => {
-    if (!hydrated) return undefined;
-    const unsubscribe = subscribeActiveTimer((remote) => {
-      if (!remote) return;
-      const isEcho =
-        (remote.subjectId || "") === subjectId &&
-        remote.phase === phase &&
-        remote.isRunning === isRunning &&
-        remote.completedCount === completedCount &&
-        remote.phaseEndAt === phaseEndAtRef.current &&
-        remote.sessionStart === sessionStartRef.current;
-      if (isEcho) return;
-
-      skipNextPushRef.current = true;
-      setSubjectId(remote.subjectId ?? "");
-      setPhase(remote.phase ?? "work");
-      setCompletedCount(remote.completedCount ?? 0);
-      sessionStartRef.current = remote.sessionStart ?? null;
-      phaseEndAtRef.current = remote.phaseEndAt ?? null;
-      setIsRunning(remote.isRunning ?? false);
-      if (remote.isRunning && remote.phaseEndAt) {
-        setRemaining(Math.max(0, Math.round((remote.phaseEndAt - Date.now()) / 1000)));
-      } else {
-        setRemaining(remote.remainingSeconds ?? null);
-      }
-    });
-    return unsubscribe;
   }, [hydrated, subjectId, isRunning, phase, completedCount]);
 
   useEffect(() => {
