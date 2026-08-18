@@ -16,18 +16,20 @@ const COLORS = [
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 
-// Oval rather than perfectly round, and narrower than tall, so all 8 fit on
-// one row without wrapping or scrolling even on a narrow phone.
+// On mobile the swatches stay a fixed oval size but `justify-between`
+// stretches the GAPS to span the full row width symmetrically, so it
+// adapts to any phone screen without ever needing to scroll. On desktop
+// (sm:) there's already room, so it's a plain compact row of circles.
 function ColorPicker({ value, onChange }) {
   return (
-    <div className="flex flex-nowrap gap-2">
+    <div className="flex w-full justify-between sm:w-auto sm:justify-start sm:gap-2.5">
       {COLORS.map((c) => (
         <button
           type="button"
           key={c}
           onClick={() => onChange(c)}
           aria-label={`Boja ${c}`}
-          className={`h-8 w-6 shrink-0 rounded-full transition-shadow sm:h-9 sm:w-7 ${
+          className={`h-8 w-6 rounded-full transition-shadow sm:h-8 sm:w-8 ${
             value === c ? "ring-2 ring-ink ring-offset-2 ring-offset-surface-card" : ""
           }`}
           style={{ backgroundColor: c }}
