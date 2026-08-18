@@ -3,10 +3,10 @@
 import { useRef, useState } from "react";
 import { addSubject, deleteSubject, updateSubject, useSubjects } from "@/lib/storage";
 
-// This exact order is validated so every adjacent pair stays visually
-// distinct (including for colorblind vision) — a rainbow re-sort looks
-// nicer but breaks that guarantee (it's how red and orange ended up next
-// to each other and hard to tell apart).
+// Only 6 — this exact set is validated so every one of these is
+// distinguishable from every other, not just from its neighbors. Adding
+// more back in would put some pair too close together again (there isn't
+// enough perceptual room for 8 fully-distinct hues at once).
 const COLORS = [
   "var(--color-series-1)",
   "var(--color-series-2)",
@@ -14,8 +14,6 @@ const COLORS = [
   "var(--color-series-4)",
   "var(--color-series-5)",
   "var(--color-series-6)",
-  "var(--color-series-7)",
-  "var(--color-series-8)",
 ];
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;

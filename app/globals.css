@@ -20,15 +20,18 @@
   --danger-hover: #eb8a8a;
   --danger-wash: rgba(230, 103, 103, 0.14);
 
-  /* Validated categorical palette — order is the CVD-safety mechanism
-     (worst adjacent pair clears both the colorblind and normal-vision
-     floors), not cosmetic, so keep this exact sequence. */
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
+  /* Categorical palette for subject colors. Validated (dataviz skill's
+     validate_palette.js, --pairs all against this exact dark surface) so
+     that EVERY pair among 1–6 is distinguishable, not just neighbors —
+     8 hues can't all clear that bar at once (not enough perceptual room),
+     which is why the picker only offers 6. 7/8 stay defined, unchanged,
+     purely so any subject already using one keeps its color. */
+  --series-1: #ae3560;
+  --series-2: #c06500;
+  --series-3: #80a108;
+  --series-4: #008472;
+  --series-5: #00a3d2;
+  --series-6: #4e68ce;
   --series-7: #9085e9;
   --series-8: #e66767;
 }
