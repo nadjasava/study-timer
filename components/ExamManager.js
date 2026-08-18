@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { addExam, deleteExam, useExams, useSubjects } from "@/lib/storage";
 import { daysUntil, formatDateDMY } from "@/lib/timeUtils";
 import Calendar from "./Calendar";
 import Dropdown from "./Dropdown";
+import Popover from "./Popover";
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;
 const ERROR_MESSAGE = "Nešto nije uspelo. Proveri konekciju i pokušaj ponovo.";
@@ -27,27 +28,12 @@ const TONE_CLASSES = {
 
 function DateInput({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    function handlePointerDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    }
-    function handleKeyDown(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+  const anchorRef = useRef(null);
 
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div className="w-full">
       <button
+        ref={anchorRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left outline-none transition-colors focus:border-accent"
@@ -57,17 +43,15 @@ function DateInput({ value, onChange }) {
         </span>
       </button>
 
-      {open && (
-        <div className="absolute z-20 mt-1.5">
-          <Calendar
-            value={value}
-            onChange={(iso) => {
-              onChange(iso);
-              setOpen(false);
-            }}
-          />
-        </div>
-      )}
+      <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchorRef}>
+        <Calendar
+          value={value}
+          onChange={(iso) => {
+            onChange(iso);
+            setOpen(false);
+          }}
+        />
+      </Popover>
     </div>
   );
 }

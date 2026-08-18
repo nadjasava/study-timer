@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import Popover from "./Popover";
 
 function ChevronIcon() {
   return (
@@ -21,28 +22,13 @@ function ChevronIcon() {
 // so this is the only way to make it look like the rest of the app.
 export default function Dropdown({ value, onChange, options, placeholder }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
+  const anchorRef = useRef(null);
   const selected = options.find((o) => o.value === value);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function handlePointerDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    }
-    function handleKeyDown(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div className="w-full">
       <button
+        ref={anchorRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -63,10 +49,10 @@ export default function Dropdown({ value, onChange, options, placeholder }) {
         <ChevronIcon />
       </button>
 
-      {open && (
+      <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} matchWidth>
         <ul
           role="listbox"
-          className="absolute z-20 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-surface-page py-1.5 shadow-2xl shadow-black/40"
+          className="max-h-60 overflow-y-auto rounded-xl border border-border bg-surface-page py-1.5 shadow-2xl shadow-black/40"
         >
           {options.map((o) => (
             <li key={o.value} role="option" aria-selected={o.value === value}>
@@ -91,7 +77,7 @@ export default function Dropdown({ value, onChange, options, placeholder }) {
             </li>
           ))}
         </ul>
-      )}
+      </Popover>
     </div>
   );
 }
