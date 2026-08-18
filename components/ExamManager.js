@@ -23,84 +23,23 @@ const TONE_CLASSES = {
   normal: "text-ink-secondary",
 };
 
-// A plain <input type="date"> hands format and color entirely to the
-// browser/OS (mm/dd/yyyy on some desktops, unreadable dark-on-dark text on
-// some Android builds) — this owns both instead, always reads dd.mm.yyyy,
-// and always matches the app's own styling.
+// The native date input's own text/icon rendering follows browser/OS locale
+// and theme (mm/dd/yyyy on some desktops, unreadable dark-on-dark text on
+// some Android builds) — so it's kept for the actual tap-to-open-calendar
+// behavior, but made invisible and stacked under a label this app fully
+// controls, always shown as dd.mm.yyyy (or "Datum" when empty).
 function DateInput({ value, onChange }) {
-  const [day, setDay] = useState("");
-  const [month, setMonth] = useState("");
-  const [year, setYear] = useState("");
-  const [syncedValue, setSyncedValue] = useState(value);
-
-  if (value !== syncedValue) {
-    setSyncedValue(value);
-    if (value) {
-      const [y, m, d] = value.split("-");
-      setYear(y);
-      setMonth(String(Number(m)));
-      setDay(String(Number(d)));
-    } else {
-      setDay("");
-      setMonth("");
-      setYear("");
-    }
-  }
-
-  function commit(d, m, y) {
-    const dNum = Number(d);
-    const mNum = Number(m);
-    const valid = d && m && y.length === 4 && dNum >= 1 && dNum <= 31 && mNum >= 1 && mNum <= 12;
-    onChange(valid ? `${y}-${String(mNum).padStart(2, "0")}-${String(dNum).padStart(2, "0")}` : "");
-  }
-
-  function handleDay(e) {
-    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-    setDay(v);
-    commit(v, month, year);
-  }
-  function handleMonth(e) {
-    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-    setMonth(v);
-    commit(day, v, year);
-  }
-  function handleYear(e) {
-    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-    setYear(v);
-    commit(day, month, v);
-  }
-
   return (
-    <div className="flex items-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 focus-within:border-accent">
+    <div className="relative rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 focus-within:border-accent">
       <input
-        type="text"
-        inputMode="numeric"
-        placeholder="DD"
-        value={day}
-        onChange={handleDay}
-        maxLength={2}
-        className="w-6 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
-      <span className="text-ink-muted">.</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        placeholder="MM"
-        value={month}
-        onChange={handleMonth}
-        maxLength={2}
-        className="w-6 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
-      />
-      <span className="text-ink-muted">.</span>
-      <input
-        type="text"
-        inputMode="numeric"
-        placeholder="GGGG"
-        value={year}
-        onChange={handleYear}
-        maxLength={4}
-        className="w-12 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
-      />
+      <span className={value ? "text-ink" : "text-ink-muted"}>
+        {value ? formatDateDMY(value) : "Datum"}
+      </span>
     </div>
   );
 }
