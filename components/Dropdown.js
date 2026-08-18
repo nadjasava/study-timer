@@ -33,7 +33,7 @@ export default function Dropdown({ value, onChange, options, placeholder }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left text-sm text-ink outline-none transition-colors focus:border-accent"
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-left text-ink outline-none transition-colors focus:border-accent"
       >
         <span className="flex min-w-0 items-center gap-2">
           {selected?.color && (
