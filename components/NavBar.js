@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -22,80 +22,19 @@ function LogoutIcon() {
   );
 }
 
-// A short synthesized splat — a low thump (impact), a filtered noise burst
-// sweeping downward (the wet body of the splat), and a delayed high noise
-// tail (a "flick" of juice) — no audio asset needed, same Web Audio
-// approach as the phase-end beep in Timer.js.
-function playSplat() {
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-
-    const thump = ctx.createOscillator();
-    const thumpGain = ctx.createGain();
-    thump.type = "sine";
-    thump.frequency.setValueAtTime(150, ctx.currentTime);
-    thump.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.18);
-    thumpGain.gain.setValueAtTime(0.35, ctx.currentTime);
-    thumpGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-    thump.connect(thumpGain);
-    thumpGain.connect(ctx.destination);
-
-    const squishSize = Math.floor(ctx.sampleRate * 0.2);
-    const squishBuffer = ctx.createBuffer(1, squishSize, ctx.sampleRate);
-    const squishData = squishBuffer.getChannelData(0);
-    for (let i = 0; i < squishSize; i++) {
-      squishData[i] = (Math.random() * 2 - 1) * (1 - i / squishSize) ** 1.5;
-    }
-    const squish = ctx.createBufferSource();
-    squish.buffer = squishBuffer;
-    const squishFilter = ctx.createBiquadFilter();
-    squishFilter.type = "lowpass";
-    squishFilter.frequency.setValueAtTime(2200, ctx.currentTime);
-    squishFilter.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.2);
-    const squishGain = ctx.createGain();
-    squishGain.gain.setValueAtTime(0.35, ctx.currentTime);
-    squish.connect(squishFilter);
-    squishFilter.connect(squishGain);
-    squishGain.connect(ctx.destination);
-
-    const flickSize = Math.floor(ctx.sampleRate * 0.08);
-    const flickBuffer = ctx.createBuffer(1, flickSize, ctx.sampleRate);
-    const flickData = flickBuffer.getChannelData(0);
-    for (let i = 0; i < flickSize; i++) flickData[i] = (Math.random() * 2 - 1) * (1 - i / flickSize);
-    const flick = ctx.createBufferSource();
-    flick.buffer = flickBuffer;
-    const flickFilter = ctx.createBiquadFilter();
-    flickFilter.type = "highpass";
-    flickFilter.frequency.value = 3000;
-    const flickGain = ctx.createGain();
-    flickGain.gain.setValueAtTime(0.12, ctx.currentTime + 0.05);
-    flick.connect(flickFilter);
-    flickFilter.connect(flickGain);
-    flickGain.connect(ctx.destination);
-
-    thump.start();
-    thump.stop(ctx.currentTime + 0.22);
-    squish.start();
-    squish.stop(ctx.currentTime + 0.2);
-    flick.start(ctx.currentTime + 0.05);
-    flick.stop(ctx.currentTime + 0.13);
-    flick.onended = () => ctx.close();
-  } catch {
-    // Web Audio unavailable — silently skip
-  }
-}
-
 export default function NavBar() {
   const pathname = usePathname();
   const [splatting, setSplatting] = useState(false);
+  const audioRef = useRef(null);
 
   if (pathname === "/login") return null;
 
   function handleTomatoClick() {
     if (splatting) return;
     setSplatting(true);
-    playSplat();
+    if (!audioRef.current) audioRef.current = new Audio("/splat.mp3");
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {});
   }
 
   return (
