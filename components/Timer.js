@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SubjectSelector from "./SubjectSelector";
 import { addSession, pushActiveTimer, usePomodoroSettings, useSessions } from "@/lib/storage";
-import { formatMinutesSeconds, startOfStudyDay } from "@/lib/timeUtils";
+import { formatMinutesSeconds, formatTimeHM, startOfStudyDay } from "@/lib/timeUtils";
 
 const RING_SIZE = 240;
 const RING_STROKE = 12;
@@ -55,6 +55,10 @@ function notify(title, body) {
   if (Notification.permission === "granted") {
     new Notification(title, { body });
   }
+}
+
+function notifyPhaseStarted(phase, endAt) {
+  notify(PHASE_LABELS[phase], `Traje do ${formatTimeHM(endAt)}.`);
 }
 
 function loadStoredTimer() {
@@ -200,7 +204,6 @@ export default function Timer() {
       const nextPhase =
         nextCount % settings.intervalsUntilLongBreak === 0 ? "longBreak" : "break";
       playBeep();
-      notify(nextPhase === "longBreak" ? "Duža pauza!" : "Pauza!", "Vreme je za pauzu.");
       sessionStartRef.current = null;
       setPhase(nextPhase);
 
@@ -208,14 +211,15 @@ export default function Timer() {
       if (settings.autoStartNextPhase) {
         phaseEndAtRef.current = Date.now() + duration * 1000;
         setRemaining(duration);
+        notifyPhaseStarted(nextPhase, phaseEndAtRef.current);
       } else {
         phaseEndAtRef.current = null;
         setRemaining(duration);
         setIsRunning(false);
+        notify(nextPhase === "longBreak" ? "Duža pauza!" : "Pauza!", "Vreme je za pauzu.");
       }
     } else {
       playBeep();
-      notify("Nazad na učenje!", "Pauza je gotova.");
       setPhase("work");
 
       const duration = settings.workMinutes * 60;
@@ -223,10 +227,12 @@ export default function Timer() {
         sessionStartRef.current = new Date().toISOString();
         phaseEndAtRef.current = Date.now() + duration * 1000;
         setRemaining(duration);
+        notifyPhaseStarted("work", phaseEndAtRef.current);
       } else {
         phaseEndAtRef.current = null;
         setRemaining(duration);
         setIsRunning(false);
+        notify("Nazad na učenje!", "Pauza je gotova.");
       }
     }
   }
@@ -260,6 +266,7 @@ export default function Timer() {
       phaseEndAtRef.current = Date.now() + duration * 1000;
       setRemaining(duration);
       setIsRunning(true);
+      notifyPhaseStarted(nextPhase, phaseEndAtRef.current);
     } else {
       phaseEndAtRef.current = null;
       setRemaining(duration);
@@ -346,6 +353,7 @@ export default function Timer() {
       sessionStartRef.current = new Date().toISOString();
     }
     phaseEndAtRef.current = Date.now() + displayRemaining * 1000;
+    notifyPhaseStarted(phase, phaseEndAtRef.current);
     setIsRunning(true);
   }
 

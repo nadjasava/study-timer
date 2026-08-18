@@ -23,6 +23,88 @@ const TONE_CLASSES = {
   normal: "text-ink-secondary",
 };
 
+// A plain <input type="date"> hands format and color entirely to the
+// browser/OS (mm/dd/yyyy on some desktops, unreadable dark-on-dark text on
+// some Android builds) — this owns both instead, always reads dd.mm.yyyy,
+// and always matches the app's own styling.
+function DateInput({ value, onChange }) {
+  const [day, setDay] = useState("");
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
+  const [syncedValue, setSyncedValue] = useState(value);
+
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (value) {
+      const [y, m, d] = value.split("-");
+      setYear(y);
+      setMonth(String(Number(m)));
+      setDay(String(Number(d)));
+    } else {
+      setDay("");
+      setMonth("");
+      setYear("");
+    }
+  }
+
+  function commit(d, m, y) {
+    const dNum = Number(d);
+    const mNum = Number(m);
+    const valid = d && m && y.length === 4 && dNum >= 1 && dNum <= 31 && mNum >= 1 && mNum <= 12;
+    onChange(valid ? `${y}-${String(mNum).padStart(2, "0")}-${String(dNum).padStart(2, "0")}` : "");
+  }
+
+  function handleDay(e) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setDay(v);
+    commit(v, month, year);
+  }
+  function handleMonth(e) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+    setMonth(v);
+    commit(day, v, year);
+  }
+  function handleYear(e) {
+    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setYear(v);
+    commit(day, month, v);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 focus-within:border-accent">
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="DD"
+        value={day}
+        onChange={handleDay}
+        maxLength={2}
+        className="w-6 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
+      />
+      <span className="text-ink-muted">.</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="MM"
+        value={month}
+        onChange={handleMonth}
+        maxLength={2}
+        className="w-6 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
+      />
+      <span className="text-ink-muted">.</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder="GGGG"
+        value={year}
+        onChange={handleYear}
+        maxLength={4}
+        className="w-12 bg-transparent text-center text-ink outline-none placeholder:text-ink-muted"
+      />
+    </div>
+  );
+}
+
 function ExamRow({ exam, subject, onDelete }) {
   const [confirming, setConfirming] = useState(false);
   const confirmTimeoutRef = useRef(null);
@@ -149,13 +231,7 @@ export default function ExamManager() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <input
-          type="date"
-          style={{ colorScheme: "dark" }}
-          className="rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-ink outline-none focus:border-accent"
-          value={examDate}
-          onChange={(e) => setExamDate(e.target.value)}
-        />
+        <DateInput value={examDate} onChange={setExamDate} />
         {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
