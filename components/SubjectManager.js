@@ -3,17 +3,19 @@
 import { useRef, useState } from "react";
 import { addSubject, deleteSubject, updateSubject, useSubjects } from "@/lib/storage";
 
-// Ordered as a rainbow sweep (red → orange → amber → green → teal → blue →
-// purple → pink) rather than by var number, which had no visual order.
+// This exact order is validated so every adjacent pair stays visually
+// distinct (including for colorblind vision) — a rainbow re-sort looks
+// nicer but breaks that guarantee (it's how red and orange ended up next
+// to each other and hard to tell apart).
 const COLORS = [
-  "var(--color-series-8)",
-  "var(--color-series-2)",
-  "var(--color-series-4)",
-  "var(--color-series-6)",
-  "var(--color-series-3)",
   "var(--color-series-1)",
-  "var(--color-series-7)",
+  "var(--color-series-2)",
+  "var(--color-series-3)",
+  "var(--color-series-4)",
   "var(--color-series-5)",
+  "var(--color-series-6)",
+  "var(--color-series-7)",
+  "var(--color-series-8)",
 ];
 
 const CONFIRM_DELETE_TIMEOUT_MS = 3000;

@@ -20,12 +20,15 @@
   --danger-hover: #eb8a8a;
   --danger-wash: rgba(230, 103, 103, 0.14);
 
+  /* Validated categorical palette — order is the CVD-safety mechanism
+     (worst adjacent pair clears both the colorblind and normal-vision
+     floors), not cosmetic, so keep this exact sequence. */
   --series-1: #3987e5;
   --series-2: #d95926;
-  --series-3: #1baf7a;
+  --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
-  --series-6: #26b826;
+  --series-6: #008300;
   --series-7: #9085e9;
   --series-8: #e66767;
 }
