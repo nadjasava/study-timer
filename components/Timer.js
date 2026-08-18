@@ -164,66 +164,67 @@ export default function Timer() {
     }
   }, []);
 
-  // Restore an in-progress timer once on mount. If the stored phase already
-  // ended while the tab/phone was away, land it exactly on that boundary —
-  // the running effect below processes the transition on its first tick.
+  // Restore an in-progress timer once on mount, preferring Supabase over
+  // localStorage when they disagree — so a phase change made on another
+  // device while this one was closed always wins, and hydration only
+  // completes (and only then can the push effect below fire) once that
+  // reconciliation is done. Doing this out of order — marking hydrated
+  // before the remote check lands — was pushing this device's stale local
+  // state to Supabase first, which a moment later could get overwritten by
+  // the real remote state and look like the timer "started itself".
   useEffect(() => {
-    // localStorage doesn't exist during SSR, so this can only run after
-    // mount — the server and the client's first render must produce the
-    // same markup, and only this post-mount pass may then diverge from it.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    const stored = loadStoredTimer();
-    if (stored) {
-      setSubjectId(stored.subjectId ?? "");
-      setPhase(stored.phase ?? "work");
-      setCompletedCount(stored.completedCount ?? 0);
-      sessionStartRef.current = stored.sessionStart ?? null;
-      phaseEndAtRef.current = stored.phaseEndAt ?? null;
+    let cancelled = false;
 
-      if (stored.isRunning && stored.phaseEndAt) {
-        const secondsLeft = Math.round((stored.phaseEndAt - Date.now()) / 1000);
-        setRemaining(Math.max(0, secondsLeft));
-        setIsRunning(true);
-      } else {
-        setRemaining(stored.remaining ?? null);
-        setIsRunning(false);
+    async function hydrate() {
+      // localStorage doesn't exist during SSR, so this can only run after
+      // mount — the server and the client's first render must produce the
+      // same markup, and only this post-mount pass may then diverge from it.
+      const stored = loadStoredTimer();
+      let subjectIdValue = stored?.subjectId ?? "";
+      let phaseValue = stored?.phase ?? "work";
+      let completedCountValue = stored?.completedCount ?? 0;
+      let sessionStartValue = stored?.sessionStart ?? null;
+      let phaseEndAtValue = stored?.phaseEndAt ?? null;
+      let isRunningValue = stored?.isRunning ?? false;
+      let remainingValue = stored?.remaining ?? null;
+
+      // A failed/offline fetch resolves to null, so this naturally falls
+      // back to the localStorage values already set above.
+      const remote = await fetchActiveTimer();
+      if (remote) {
+        subjectIdValue = remote.subjectId ?? "";
+        phaseValue = remote.phase ?? "work";
+        completedCountValue = remote.completedCount ?? 0;
+        sessionStartValue = remote.sessionStart ?? null;
+        phaseEndAtValue = remote.phaseEndAt ?? null;
+        isRunningValue = remote.isRunning ?? false;
+        remainingValue = remote.remainingSeconds ?? null;
       }
-    }
-    setHydrated(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
 
-    // Then check Supabase for a newer state set by another device while
-    // this one was closed (e.g. started on the phone, opened laptop after).
-    fetchActiveTimer().then((remote) => {
-      if (!remote) return;
-      const localSubjectId = stored?.subjectId ?? "";
-      const localPhase = stored?.phase ?? "work";
-      const localCompletedCount = stored?.completedCount ?? 0;
-      const localPhaseEndAt = stored?.phaseEndAt ?? null;
-      const localSessionStart = stored?.sessionStart ?? null;
-      const localIsRunning = stored?.isRunning ?? false;
-      const isSame =
-        (remote.subjectId || "") === localSubjectId &&
-        remote.phase === localPhase &&
-        remote.isRunning === localIsRunning &&
-        remote.completedCount === localCompletedCount &&
-        remote.phaseEndAt === localPhaseEndAt &&
-        remote.sessionStart === localSessionStart;
-      if (isSame) return;
+      if (cancelled) return;
 
+      setSubjectId(subjectIdValue);
+      setPhase(phaseValue);
+      setCompletedCount(completedCountValue);
+      sessionStartRef.current = sessionStartValue;
+      phaseEndAtRef.current = phaseEndAtValue;
+      setIsRunning(isRunningValue);
+      if (isRunningValue && phaseEndAtValue) {
+        setRemaining(Math.max(0, Math.round((phaseEndAtValue - Date.now()) / 1000)));
+      } else {
+        setRemaining(remainingValue);
+      }
+      // What's being applied here already reflects Supabase (or is the
+      // offline fallback) — no need for the push effect to immediately
+      // echo it straight back.
       skipNextPushRef.current = true;
-      setSubjectId(remote.subjectId ?? "");
-      setPhase(remote.phase ?? "work");
-      setCompletedCount(remote.completedCount ?? 0);
-      sessionStartRef.current = remote.sessionStart ?? null;
-      phaseEndAtRef.current = remote.phaseEndAt ?? null;
-      setIsRunning(remote.isRunning ?? false);
-      if (remote.isRunning && remote.phaseEndAt) {
-        setRemaining(Math.max(0, Math.round((remote.phaseEndAt - Date.now()) / 1000)));
-      } else {
-        setRemaining(remote.remainingSeconds ?? null);
-      }
-    });
+      setHydrated(true);
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function completePhase() {

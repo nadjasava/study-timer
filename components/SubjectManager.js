@@ -70,7 +70,7 @@ function SubjectCard({ subject, onEdit, onDelete }) {
         <button
           onClick={() => onEdit(subject)}
           aria-label={`Izmeni ${subject.name}`}
-          className="rounded-full p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-white/[0.08] hover:text-ink group-hover:opacity-100"
+          className="rounded-full p-1.5 text-ink-muted transition-colors hover:bg-white/[0.08] hover:text-ink"
         >
           <PencilIcon />
         </button>
@@ -79,8 +79,8 @@ function SubjectCard({ subject, onEdit, onDelete }) {
           aria-label={confirming ? `Potvrdi brisanje ${subject.name}` : `Obriši ${subject.name}`}
           className={`rounded-full text-xs font-medium transition-colors ${
             confirming
-              ? "bg-danger px-2.5 py-1 text-white opacity-100"
-              : "p-1.5 text-ink-muted opacity-0 hover:bg-danger-wash hover:text-danger group-hover:opacity-100"
+              ? "bg-danger px-2.5 py-1 text-white"
+              : "p-1.5 text-ink-muted hover:bg-danger-wash hover:text-danger"
           }`}
         >
           {confirming ? "Potvrdi?" : "✕"}

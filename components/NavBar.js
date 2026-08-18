@@ -11,6 +11,16 @@ const LINKS = [
   { href: "/stats", label: "Statistika" },
 ];
 
+function LogoutIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
 export default function NavBar() {
   const pathname = usePathname();
 
@@ -24,7 +34,7 @@ export default function NavBar() {
           <img src="/tomato.png" alt="" aria-hidden className="h-5 w-5" />
           <span className="sr-only sm:not-sr-only">Study Timer</span>
         </span>
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
           <nav className="flex min-w-0 gap-1 overflow-x-auto rounded-full border border-border bg-surface-card p-1 backdrop-blur">
             {LINKS.map((link) => {
               const active = pathname === link.href;
@@ -32,7 +42,7 @@ export default function NavBar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`shrink-0 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-4 sm:text-sm ${
+                  className={`shrink-0 rounded-full px-2 py-1.5 text-[11px] font-medium transition-colors sm:px-4 sm:text-sm ${
                     active
                       ? "bg-accent text-white shadow-sm shadow-accent/30"
                       : "text-ink-secondary hover:text-ink"
@@ -45,9 +55,11 @@ export default function NavBar() {
           </nav>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="shrink-0 rounded-full border border-border px-2.5 py-1.5 text-xs text-ink-muted transition-colors hover:border-border-strong hover:text-ink sm:px-3 sm:text-sm"
+            aria-label="Odjava"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-1.5 text-xs text-ink-muted transition-colors hover:border-border-strong hover:text-ink sm:px-3 sm:text-sm"
           >
-            Odjava
+            <LogoutIcon />
+            <span className="sr-only sm:not-sr-only">Odjava</span>
           </button>
         </div>
       </div>

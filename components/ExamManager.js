@@ -151,6 +151,7 @@ export default function ExamManager() {
         />
         <input
           type="date"
+          style={{ colorScheme: "dark" }}
           className="rounded-xl border border-border bg-white/[0.03] px-4 py-2.5 text-ink outline-none focus:border-accent"
           value={examDate}
           onChange={(e) => setExamDate(e.target.value)}
