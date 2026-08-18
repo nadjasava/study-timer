@@ -22,43 +22,65 @@ function LogoutIcon() {
   );
 }
 
-// A short synthesized "splat" (thump + filtered noise burst) — no audio
-// asset needed, same Web Audio approach as the phase-end beep in Timer.js.
+// A short synthesized splat — a low thump (impact), a filtered noise burst
+// sweeping downward (the wet body of the splat), and a delayed high noise
+// tail (a "flick" of juice) — no audio asset needed, same Web Audio
+// approach as the phase-end beep in Timer.js.
 function playSplat() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();
 
-    const osc = ctx.createOscillator();
-    const oscGain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(180, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.15);
-    oscGain.gain.setValueAtTime(0.3, ctx.currentTime);
-    oscGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
-    osc.connect(oscGain);
-    oscGain.connect(ctx.destination);
+    const thump = ctx.createOscillator();
+    const thumpGain = ctx.createGain();
+    thump.type = "sine";
+    thump.frequency.setValueAtTime(150, ctx.currentTime);
+    thump.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.18);
+    thumpGain.gain.setValueAtTime(0.35, ctx.currentTime);
+    thumpGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+    thump.connect(thumpGain);
+    thumpGain.connect(ctx.destination);
 
-    const bufferSize = Math.floor(ctx.sampleRate * 0.15);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = "lowpass";
-    noiseFilter.frequency.value = 1200;
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.25, ctx.currentTime);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    const squishSize = Math.floor(ctx.sampleRate * 0.2);
+    const squishBuffer = ctx.createBuffer(1, squishSize, ctx.sampleRate);
+    const squishData = squishBuffer.getChannelData(0);
+    for (let i = 0; i < squishSize; i++) {
+      squishData[i] = (Math.random() * 2 - 1) * (1 - i / squishSize) ** 1.5;
+    }
+    const squish = ctx.createBufferSource();
+    squish.buffer = squishBuffer;
+    const squishFilter = ctx.createBiquadFilter();
+    squishFilter.type = "lowpass";
+    squishFilter.frequency.setValueAtTime(2200, ctx.currentTime);
+    squishFilter.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.2);
+    const squishGain = ctx.createGain();
+    squishGain.gain.setValueAtTime(0.35, ctx.currentTime);
+    squish.connect(squishFilter);
+    squishFilter.connect(squishGain);
+    squishGain.connect(ctx.destination);
 
-    osc.start();
-    osc.stop(ctx.currentTime + 0.2);
-    noise.start();
-    noise.stop(ctx.currentTime + 0.15);
-    noise.onended = () => ctx.close();
+    const flickSize = Math.floor(ctx.sampleRate * 0.08);
+    const flickBuffer = ctx.createBuffer(1, flickSize, ctx.sampleRate);
+    const flickData = flickBuffer.getChannelData(0);
+    for (let i = 0; i < flickSize; i++) flickData[i] = (Math.random() * 2 - 1) * (1 - i / flickSize);
+    const flick = ctx.createBufferSource();
+    flick.buffer = flickBuffer;
+    const flickFilter = ctx.createBiquadFilter();
+    flickFilter.type = "highpass";
+    flickFilter.frequency.value = 3000;
+    const flickGain = ctx.createGain();
+    flickGain.gain.setValueAtTime(0.12, ctx.currentTime + 0.05);
+    flick.connect(flickFilter);
+    flickFilter.connect(flickGain);
+    flickGain.connect(ctx.destination);
+
+    thump.start();
+    thump.stop(ctx.currentTime + 0.22);
+    squish.start();
+    squish.stop(ctx.currentTime + 0.2);
+    flick.start(ctx.currentTime + 0.05);
+    flick.stop(ctx.currentTime + 0.13);
+    flick.onended = () => ctx.close();
   } catch {
     // Web Audio unavailable — silently skip
   }
@@ -92,7 +114,7 @@ export default function NavBar() {
               alt=""
               aria-hidden
               onAnimationEnd={() => setSplatting(false)}
-              className={`h-5 w-5 ${splatting ? "animate-tomato-splat" : ""}`}
+              className={`h-5 w-5 -translate-y-0.5 ${splatting ? "animate-tomato-splat" : ""}`}
             />
           </button>
           <span className="sr-only uppercase tracking-widest sm:not-sr-only">Study Timer</span>
