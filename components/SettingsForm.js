@@ -42,30 +42,43 @@ function ToggleField({ label, checked, onChange }) {
   );
 }
 
+const ERROR_MESSAGE = "Čuvanje nije uspelo. Proveri konekciju i pokušaj ponovo.";
+
 export default function SettingsForm() {
   const remoteSettings = usePomodoroSettings();
   const [settings, setSettings] = useState(remoteSettings);
+  // Tracks which remoteSettings value is already reflected in `settings`, so
+  // a fresh fetch can be copied in during render (no flash of stale data)
+  // instead of via an effect, which would cost an extra render pass.
+  const [syncedRemoteSettings, setSyncedRemoteSettings] = useState(remoteSettings);
+  const [error, setError] = useState("");
   const saveTimerRef = useRef(null);
 
-  useEffect(() => {
+  if (remoteSettings !== syncedRemoteSettings) {
+    setSyncedRemoteSettings(remoteSettings);
     setSettings(remoteSettings);
-  }, [remoteSettings]);
+  }
 
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
+
+  async function persist(next) {
+    const err = await savePomodoroSettings(next);
+    setError(err ? ERROR_MESSAGE : "");
+  }
 
   function handleChange(field, rawValue) {
     const value = Math.max(1, Number(rawValue) || 1);
     const next = { ...settings, [field]: value };
     setSettings(next);
     clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => savePomodoroSettings(next), SAVE_DELAY_MS);
+    saveTimerRef.current = setTimeout(() => persist(next), SAVE_DELAY_MS);
   }
 
   function handleToggle(field, value) {
     const next = { ...settings, [field]: value };
     setSettings(next);
     clearTimeout(saveTimerRef.current);
-    savePomodoroSettings(next);
+    persist(next);
   }
 
   return (
@@ -97,6 +110,7 @@ export default function SettingsForm() {
           onChange={(v) => handleToggle("autoStartNextPhase", v)}
         />
       </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

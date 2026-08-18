@@ -42,6 +42,7 @@ function playBeep() {
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
     osc.connect(gain);
     gain.connect(ctx.destination);
+    osc.onended = () => ctx.close();
     osc.start();
     osc.stop(ctx.currentTime + 0.6);
   } catch {
@@ -157,6 +158,10 @@ export default function Timer() {
   // ended while the tab/phone was away, land it exactly on that boundary —
   // the running effect below processes the transition on its first tick.
   useEffect(() => {
+    // localStorage doesn't exist during SSR, so this can only run after
+    // mount — the server and the client's first render must produce the
+    // same markup, and only this post-mount pass may then diverge from it.
+    /* eslint-disable react-hooks/set-state-in-effect */
     const stored = loadStoredTimer();
     if (stored) {
       setSubjectId(stored.subjectId ?? "");
@@ -175,7 +180,7 @@ export default function Timer() {
       }
     }
     setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   function completePhase() {
@@ -251,9 +256,15 @@ export default function Timer() {
     setPhase(nextPhase);
 
     const duration = phaseDurationSecondsFor(nextPhase, settings);
-    phaseEndAtRef.current = Date.now() + duration * 1000;
-    setRemaining(duration);
-    setIsRunning(true);
+    if (settings.autoStartNextPhase) {
+      phaseEndAtRef.current = Date.now() + duration * 1000;
+      setRemaining(duration);
+      setIsRunning(true);
+    } else {
+      phaseEndAtRef.current = null;
+      setRemaining(duration);
+      setIsRunning(false);
+    }
   }
 
   function reconcile() {

@@ -9,8 +9,13 @@ export default function SyncBanner() {
   const [pending, setPending] = useState(0);
 
   useEffect(() => {
+    // navigator.onLine and the queued-session count aren't available during
+    // SSR, so the real values can only be read after mount — the server and
+    // the client's first render must agree, and only this pass may diverge.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setOffline(!navigator.onLine);
     setPending(getPendingSessionCount());
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     async function trySync() {
       await syncPendingSessions();

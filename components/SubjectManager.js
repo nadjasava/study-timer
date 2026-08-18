@@ -90,25 +90,38 @@ function SubjectCard({ subject, onEdit, onDelete }) {
   );
 }
 
+const ERROR_MESSAGE = "Nešto nije uspelo. Proveri konekciju i pokušaj ponovo.";
+
 export default function SubjectManager() {
   const subjects = useSubjects();
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLORS[0]);
+  const [error, setError] = useState("");
 
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState(COLORS[0]);
 
-  function handleAdd(e) {
+  async function handleAdd(e) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
-    addSubject(trimmed, color);
+    const err = await addSubject(trimmed, color);
+    if (err) {
+      setError(ERROR_MESSAGE);
+      return;
+    }
+    setError("");
     setName("");
   }
 
-  function handleDelete(id) {
-    deleteSubject(id);
+  async function handleDelete(id) {
+    const err = await deleteSubject(id);
+    if (err) {
+      setError(ERROR_MESSAGE);
+      return;
+    }
+    setError("");
     if (editingId === id) setEditingId(null);
   }
 
@@ -122,11 +135,16 @@ export default function SubjectManager() {
     setEditingId(null);
   }
 
-  function saveEdit(e) {
+  async function saveEdit(e) {
     e.preventDefault();
     const trimmed = editName.trim();
     if (!trimmed) return;
-    updateSubject(editingId, { name: trimmed, color: editColor });
+    const err = await updateSubject(editingId, { name: trimmed, color: editColor });
+    if (err) {
+      setError(ERROR_MESSAGE);
+      return;
+    }
+    setError("");
     setEditingId(null);
   }
 
@@ -144,6 +162,7 @@ export default function SubjectManager() {
           onChange={(e) => setName(e.target.value)}
         />
         <ColorPicker value={color} onChange={setColor} />
+        {error && <p className="text-sm text-danger">{error}</p>}
         <button
           type="submit"
           className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
