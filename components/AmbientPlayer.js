@@ -92,6 +92,12 @@ export default function AmbientPlayer() {
       if (cancelledRef.current || !containerRef.current) return;
       playerRef.current = new YT.Player(containerRef.current, {
         videoId: VIDEO_ID,
+        // YouTube's docs call for a minimum of ~200x200 — a smaller iframe
+        // (this used to be squashed to 1x1px via CSS) is a known crash
+        // trigger, which matches the tab dying the moment the player
+        // initialized. Real dimensions, just parked off-screen, instead.
+        width: 200,
+        height: 113,
         playerVars: {
           autoplay: 1,
           controls: 0,
@@ -160,7 +166,7 @@ export default function AmbientPlayer() {
 
   return (
     <div className="inline-flex items-center gap-3 rounded-full border border-border bg-surface-card px-5 py-2.5 backdrop-blur-xl">
-      <div ref={containerRef} className="absolute h-px w-px overflow-hidden opacity-0" />
+      <div ref={containerRef} className="fixed -left-[9999px] -top-[9999px] h-[113px] w-[200px]" />
 
       <button
         onClick={togglePlay}
