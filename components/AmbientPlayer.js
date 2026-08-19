@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const VIDEO_ID = "X4VbdwhkE10";
+const VIDEO_ID = "rFZHOHl-L8A";
 
 function loadYouTubeApi() {
   return new Promise((resolve) => {
@@ -90,7 +90,17 @@ export default function AmbientPlayer() {
     loadYouTubeApi().then((YT) => {
       clearTimeout(giveUpTimer);
       if (cancelledRef.current || !containerRef.current) return;
-      playerRef.current = new YT.Player(containerRef.current, {
+      // YT.Player takes over its target element and replaces it with an
+      // iframe. Handing it the React-rendered div directly meant React's
+      // own reconciler still believed it owned that node — the next
+      // re-render (e.g. onReady flipping `ready`) tried to patch a node
+      // YouTube had already ripped out from under it, crashing the tab
+      // with "Failed to execute 'removeChild': the node ... is not a
+      // child of this node". A plain node created outside JSX, that React
+      // never puts anything into, sidesteps the conflict entirely.
+      const mountNode = document.createElement("div");
+      containerRef.current.appendChild(mountNode);
+      playerRef.current = new YT.Player(mountNode, {
         videoId: VIDEO_ID,
         // YouTube's docs call for a minimum of ~200x200 — a smaller iframe
         // (this used to be squashed to 1x1px via CSS) is a known crash
