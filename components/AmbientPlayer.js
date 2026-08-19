@@ -59,29 +59,41 @@ function VolumeIcon({ muted }) {
 export default function AmbientPlayer() {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
+  const cancelledRef = useRef(false);
 
   const [ready, setReady] = useState(false);
+  const [initializing, setInitializing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(50);
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    return () => {
+      cancelledRef.current = true;
+      playerRef.current?.destroy?.();
+    };
+  }, []);
 
-    // Nothing here ever rejects — a blocked script (ad blocker, flaky
-    // network) just leaves the promise pending forever, which used to leave
-    // the controls disabled with no explanation. This timeout gives up and
-    // surfaces that instead of failing silently.
+  // The YouTube embed (a live 24/7 stream, pulling in its own player JS,
+  // fonts, and ad/QoE pings) used to load unconditionally on mount, into a
+  // 1x1px hidden box, on every single visit — whether or not anyone ever
+  // pressed Play. Deferring it to the first tap means the timer page never
+  // pays that cost, and never carries that risk, unless music is wanted.
+  function startPlayer() {
+    setInitializing(true);
+
     const giveUpTimer = setTimeout(() => {
-      if (!cancelled && !playerRef.current) setFailed(true);
+      if (!cancelledRef.current && !playerRef.current) setFailed(true);
     }, 8000);
 
     loadYouTubeApi().then((YT) => {
-      if (cancelled || !containerRef.current) return;
+      clearTimeout(giveUpTimer);
+      if (cancelledRef.current || !containerRef.current) return;
       playerRef.current = new YT.Player(containerRef.current, {
         videoId: VIDEO_ID,
         playerVars: {
+          autoplay: 1,
           controls: 0,
           disablekb: 1,
           modestbranding: 1,
@@ -101,17 +113,13 @@ export default function AmbientPlayer() {
         },
       });
     });
-
-    return () => {
-      cancelled = true;
-      clearTimeout(giveUpTimer);
-      playerRef.current?.destroy?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   function togglePlay() {
-    if (!playerRef.current) return;
+    if (!playerRef.current) {
+      if (!initializing) startPlayer();
+      return;
+    }
     if (isPlaying) {
       playerRef.current.pauseVideo();
     } else {
@@ -156,7 +164,7 @@ export default function AmbientPlayer() {
 
       <button
         onClick={togglePlay}
-        disabled={!ready}
+        disabled={initializing && !ready}
         aria-label={isPlaying ? "Pauziraj muziku" : "Pusti muziku"}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
