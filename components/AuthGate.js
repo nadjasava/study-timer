@@ -18,8 +18,18 @@ export default function AuthGate({ children }) {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-ink-muted">Učitavanje…</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/tomato.png"
+          alt=""
+          aria-hidden
+          className="h-20 w-20 animate-tomato-breathe drop-shadow-[0_0_24px_rgba(192,57,43,0.35)]"
+        />
+        <div className="flex items-center gap-2.5 text-sm text-ink-muted">
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+          Učitavanje…
+        </div>
       </div>
     );
   }

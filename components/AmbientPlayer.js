@@ -61,12 +61,21 @@ export default function AmbientPlayer() {
   const playerRef = useRef(null);
 
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(50);
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Nothing here ever rejects — a blocked script (ad blocker, flaky
+    // network) just leaves the promise pending forever, which used to leave
+    // the controls disabled with no explanation. This timeout gives up and
+    // surfaces that instead of failing silently.
+    const giveUpTimer = setTimeout(() => {
+      if (!cancelled && !playerRef.current) setFailed(true);
+    }, 8000);
 
     loadYouTubeApi().then((YT) => {
       if (cancelled || !containerRef.current) return;
@@ -86,12 +95,16 @@ export default function AmbientPlayer() {
           onStateChange: (event) => {
             setIsPlaying(event.data === YT.PlayerState.PLAYING);
           },
+          onError: () => {
+            setFailed(true);
+          },
         },
       });
     });
 
     return () => {
       cancelled = true;
+      clearTimeout(giveUpTimer);
       playerRef.current?.destroy?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,6 +140,14 @@ export default function AmbientPlayer() {
       playerRef.current?.unMute();
       setMuted(false);
     }
+  }
+
+  if (failed) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-card px-5 py-2.5 text-xs text-ink-muted backdrop-blur-xl">
+        Muzika trenutno nije dostupna.
+      </div>
+    );
   }
 
   return (
