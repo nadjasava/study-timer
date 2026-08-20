@@ -34,17 +34,26 @@ function playBeep() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.onended = () => ctx.close();
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
+    const beepCount = 3;
+    const beepDuration = 0.35;
+    const gap = 0.15;
+
+    for (let i = 0; i < beepCount; i++) {
+      const startTime = ctx.currentTime + i * (beepDuration + gap);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.8, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + beepDuration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + beepDuration);
+      if (i === beepCount - 1) {
+        osc.onended = () => ctx.close();
+      }
+    }
   } catch {
     // Web Audio unavailable — silently skip the beep
   }
